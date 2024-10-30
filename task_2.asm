@@ -100,6 +100,7 @@ open_file:
     JMP continue
 
 count_letters:
+    PUSH si
     PUSH bx
     PUSH cx
 
@@ -149,6 +150,7 @@ count_letters:
 
     POP cx
     POP bx
+    POP si
 
     RET
 
