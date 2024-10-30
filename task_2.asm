@@ -6,6 +6,8 @@
     buff db 255 dup(?)
     file_name db 255 dup(?)
     file_handle dw ?
+    out_file_name db "out.txt",0
+    out_file_handle dw ?
     letter_count dw 26 dup(0)
     total_count dw 0
     error_file db "No file with such name: $"
@@ -42,6 +44,12 @@ start:
     continue:
         INC si
     LOOP args
+
+    MOV ah, 3Ch
+    MOV cx, 0
+    MOV dx, offset out_file_name
+    int 21h
+    MOV out_file_handle, ax
 
     CALL print_statistics
 
@@ -165,10 +173,15 @@ print_statistics:
     xor cx, cx
     MOV cl, 26
     letter:
+        LEA di, buff
+
         MOV ah, 02h
         MOV dl, "z"+1
         SUB dl, cl
         INT 21h
+
+        MOV [di], dl
+        INC di
 
         MOV bx, offset letter_count
         ADD bx, 52
@@ -178,14 +191,29 @@ print_statistics:
         MOV ah, 02h
         MOV dx, " "
         INT 21h
+
+        MOV [di], " "
+        INC di
+
         PUSH cx
         CALL print_num
         CALL print_col
-        POP cx
 
         MOV ah, 09h
         MOV dx, offset endl
         INT 21h
+
+        MOV [di], 0Ah
+
+        MOV ah, 40h
+        MOV bx, out_file_handle
+        MOV dx, offset buff
+        MOV cx, GRAPH_SIZE
+        ADD cx, 8
+        INT 21h
+
+        POP cx
+
     LOOP letter
     RET
 
@@ -214,12 +242,18 @@ get_dig:
         ADD dx, "0"
         INT 21h
         DEC si
+
+        MOV [di], dl
+        INC di
     LOOP print_dig
 
     MOV cx, si
     print_fill:
         MOV dx, " "
         INT 21h
+
+        MOV [di], " "
+        INC di
     LOOP print_fill
 
     POP bx
@@ -243,6 +277,9 @@ print_col:
         MOV ah, 02h
         MOV dl, 219
         INT 21h
+
+        MOV [di], "@"
+        INC di
     LOOP col_fill
 skip_col_fill:
 
@@ -255,8 +292,11 @@ skip_col_fill:
 
     col_empty:
         MOV ah, 02h
-        MOV dl, 176 
+        MOV dl, 176
         INT 21h
+
+        MOV [di], "."
+        INC di
     LOOP col_empty
 skip_col_empty:
 
