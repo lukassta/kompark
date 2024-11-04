@@ -3,8 +3,8 @@
 
 .data
     GRAPH_SIZE dw 50
-    buff db 255 dup(?)
-    file_name db 255 dup(?)
+    buff db 200h dup(?)
+    file_name db 13 dup(?)
     file_handle dw ?
     out_file_name db "out.txt",0
     out_file_handle dw ?
@@ -116,7 +116,7 @@ count_letters:
         MOV ah, 3Fh
         MOV bx, [file_handle]
         MOV dx, offset buff
-        MOV cx, 255
+        MOV cx, 200h
         INT 21H
 
         PUSH ax
@@ -153,7 +153,7 @@ count_letters:
 
         POP ax
 
-        CMP al, 255
+        CMP ax, 200h
         JE load_buff
 
     POP cx
@@ -203,10 +203,11 @@ print_statistics:
         MOV dx, offset endl
         INT 21h
 
-        MOV [di], 0Ah
+        MOV BYTE PTR [di], 0Ah
 
         MOV ah, 40h
         MOV bx, out_file_handle
+        ;MOV bx, 1
         MOV dx, offset buff
         MOV cx, GRAPH_SIZE
         ADD cx, 8
@@ -278,7 +279,7 @@ print_col:
         MOV dl, 219
         INT 21h
 
-        MOV [di], "@"
+        MOV [di], 219
         INC di
     LOOP col_fill
 skip_col_fill:
