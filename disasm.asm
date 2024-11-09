@@ -3,15 +3,17 @@
 
 .data
     in_buff db 200h dup(?)
-    out_buff db 100 dup(?)
+    out_buff db 100 dup(" ")
     load_size dw ?
     in_file_name db 13 dup(?)
     in_file_handle dw ?
     out_file_name db 13 dup(?)
     out_file_handle dw ?
+    registers db "alcldlblahchdhbhaxcxdxbxspbpsidi"
     error_file db "No file with such name: $"
     error_arg db "No arguments were provided", 0Ah, 24h
     endl db 0Dh,0Ah, 24h
+    ins_byte_num db ? 
 
 .code
 
@@ -87,6 +89,7 @@ open_files:
     MOV load_size, ax
 
     XOR bx, bx
+    XOR si, si
 
     CALL get_instruction
 
@@ -151,9 +154,27 @@ file_end:
 
 get_instruction:
     XOR di, di
+    MOV ins_byte_num, 0
 
     CALL load_buff
-    CALL get_num
+    CALL get_line_num
+
+    MOV [out_buff + di], ":"
+    INC di
+
+
+    PUSH cx
+    MOV cx, 20
+    get_space:
+        MOV [out_buff + di], " "
+        INC di
+    LOOP get_space
+    POP cx
+
+    ADD di, 2
+
+    CALL get_instruction_byte
+
     MOV ah, [in_buff + bx]
     AND ah, 11110000b
 
@@ -221,59 +242,119 @@ skip1111:
     MOV [out_buff + di + 1], "o"
     MOV [out_buff + di + 2], "n"
     ADD di, 3
+
+    INC SI
     inc BX
     JMP print_line
-
 hb0000:
+
     MOV [out_buff + di], "0"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb0001:
+
     MOV [out_buff + di], "1"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb0010:
+
     MOV [out_buff + di], "2"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb0011:
+
     MOV [out_buff + di], "3"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb0100:
-    MOV [out_buff + di], "4"
+
+    MOV ah, [in_buff + bx]
+    AND ah, 00001000b
+
+    CMP ah, 00000000b
+    JNE not_INC2
+    MOV [out_buff + di], "I"
+    MOV [out_buff + di + 1], "N"
+    MOV [out_buff + di + 2], "C"
+    ADD di, 3
+not_INC2:
+
+    CMP ah, 00001000b
+    JNE not_DEC2
+    MOV [out_buff + di], "D"
+    MOV [out_buff + di + 1], "E"
+    MOV [out_buff + di + 2], "C"
+    ADD di, 3
+not_DEC2:
+
+    MOV [out_buff + di], " "
     INC di
 
+    MOV al, [in_buff + bx]
+    AND al, 00000111b
+    OR al, 00001000b
+
+    CALL get_register
+
+    INC SI
     inc BX
     JMP print_line
-
 hb0101:
-    MOV [out_buff + di], "5"
+
+    MOV ah, [in_buff + bx]
+    AND ah, 00001000b
+
+    CMP ah, 00000000b
+    JNE not_PUSH2
+    MOV [out_buff + di], "P"
+    MOV [out_buff + di + 1], "U"
+    MOV [out_buff + di + 2], "S"
+    MOV [out_buff + di + 3], "H"
+    ADD di, 4
+not_PUSH2:
+
+    CMP ah, 00001000b
+    JNE not_POP2
+    MOV [out_buff + di], "P"
+    MOV [out_buff + di + 1], "O"
+    MOV [out_buff + di + 2], "P"
+    ADD di, 3
+not_POP2:
+
+    MOV [out_buff + di], " "
     INC di
 
+    MOV al, [in_buff + bx]
+    AND al, 00000111b
+    OR al, 00001000b
+
+    CALL get_register
+
+    INC SI
     inc BX
     JMP print_line
-
 hb0110:
+
     MOV [out_buff + di], "6"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb0111:
+
     MOV ah, [in_buff + bx]
     AND ah, 00001111b
 
@@ -400,67 +481,97 @@ not_JG:
     MOV [out_buff + di], " "
     INC di
 
+    INC si
     INC bx
 
+    CALL get_instruction_byte
     CALL get_displacement
 
     JMP print_line
-
 hb1000:
+
     MOV [out_buff + di], "9"
     INC di
 
-    inc BX
+    INC SI
+    INC BX
     JMP print_line
-
 hb1001:
+
     MOV [out_buff + di], "A"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb1010:
+
     MOV [out_buff + di], "B"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb1011:
+
     MOV [out_buff + di], "C"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb1100:
+
     MOV [out_buff + di], "D"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb1101:
+
     MOV [out_buff + di], "E"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb1110:
+
     MOV [out_buff + di], "F"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
-
 hb1111:
+
     MOV [out_buff + di], "G"
     INC di
 
+    INC SI
     inc BX
     JMP print_line
+
+
+get_register:
+    PUSH bx
+    PUSH si
+
+    XOR ah, ah
+    SHL ax, 1
+    MOV si, ax
+    MOV bx, offset registers
+    MOV al, [bx + si]
+    MOV [out_buff + di], al
+    MOV al, [bx + si + 1]
+    MOV [out_buff + di + 1], al
+    ADD di, 2
+
+    POP si
+    POP bx
+
+    RET
 
 get_displacement:
     MOV ah, [in_buff + bx]
@@ -471,7 +582,43 @@ get_displacement:
     AND ah, 00001111b
     CALL get_hexadecimal
 
+    INC si
     INC bx
+    RET
+
+get_instruction_byte:
+    MOV al, [in_buff + bx]
+    SHR al, 4
+    CALL get_instruction_hexadecimal
+
+    MOV al, [in_buff + bx]
+    AND al, 0Fh
+    CALL get_instruction_hexadecimal
+
+    RET
+
+get_instruction_hexadecimal:
+    PUSH bx
+    XOR bx, bx
+    MOV bl, ins_byte_num
+
+    CMP al, 10
+    JB is_ins_byte_num
+
+    ADD al, 55; 'A' - 10
+    MOV [out_buff + bx + 7], al
+    JMP return_ins_byte
+
+is_ins_byte_num:
+    ADD al, "0"
+    MOV [out_buff + bx + 7], al
+
+return_ins_byte:
+    INC bx
+    MOV ins_byte_num, bl
+
+    POP bx
+
     RET
 
 get_hexadecimal:
@@ -491,12 +638,35 @@ return:
 
     RET
 
+get_line_num:
+    PUSH bx
+    MOV bx, si
+
+    MOV ah, bh
+    SHR ah, 4
+    CALL get_hexadecimal
+
+    MOV ah, bh
+    AND ah, 0Fh
+    CALL get_hexadecimal
+
+    MOV ah, bl
+    SHR ah, 4
+    CALL get_hexadecimal
+
+    MOV ah, bl
+    AND ah, 0Fh
+    CALL get_hexadecimal
+
+    POP bx
+    RET
+
 get_num:
     PUSH bx
 
     XOR dx, dx
     XOR cx, cx
-    MOV si, 5
+    MOV si, 20
     ; dx:ax
     MOV ax, bx
     MOV bx, 10
