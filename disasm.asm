@@ -82,7 +82,7 @@ open_files:
 
     ; First read of in file
     MOV ah, 3Fh
-    MOV bx, [in_file_handle]
+    MOV bx, in_file_handle
     LEA dx, in_buff
     MOV cx, 200h
     INT 21H
@@ -93,12 +93,12 @@ open_files:
 
     CALL get_instruction
 
-    ; Closing file
+    ; Closing output file
     MOV ah, 3Eh
     MOV dx, out_file_handle
     INT 21h
 
-    ; Closing file
+    ; Closing input file
     MOV ah, 3Eh
     MOV dx, in_file_handle
     INT 21h
@@ -162,7 +162,6 @@ get_instruction:
     MOV [out_buff + di], ":"
     INC di
 
-
     PUSH cx
     MOV cx, 20
     get_space:
@@ -171,73 +170,73 @@ get_instruction:
     LOOP get_space
     POP cx
 
-    ADD di, 2
-
     CALL get_instruction_byte
 
     MOV ah, [in_buff + bx]
     AND ah, 11110000b
 
+;=== START OF FIRST BYTE HIGHER =================================================
     CMP ah, 00000000b
     JNE skip0000
-    JMP hb0000
+    JMP fh0000
 skip0000:
 
     CMP ah, 00010000b
     JNE skip0001
-    JMP hb0001
+    JMP fh0001
 skip0001:
 
     CMP ah, 00100000b
     JNE skip0010
-    JMP hb0010
+    JMP fh0010
 skip0010:
 
     CMP ah, 00110000b
     JNE skip0011
-    JMP hb0011
+    JMP fh0011
 skip0011:
 
     CMP ah, 01000000b
     JNE skip0100
-    JMP hb0100
+    JMP fh0100
 skip0100:
 
     CMP ah, 01010000b
     JNE skip0101
-    JMP hb0101
+    JMP fh0101
 skip0101:
 
     CMP ah, 01110000b
     JNE skip0111
-    JMP hb0111
+    JMP fh0111
 skip0111:
 
     CMP ah, 10000000b
     JNE skip1000
-    JMP hb1000
+    JMP fh1000
 skip1000:
 
     CMP ah, 10010000b
     JNE skip1001
-    JMP hb1001
+    JMP fh1001
 skip1001:
 
     CMP ah, 10100000b
     JNE skip1010
-    JMP hb1010
+    JMP fh1010
 skip1010:
 
     CMP ah, 11010000b
     JNE skip1101
-    JMP hb1101
+    JMP fh1101
 skip1101:
 
     CMP ah, 11110000b
     JNE skip1111
-    JMP hb1111
+    JMP fh1111
 skip1111:
 
+    ; Instruction not fuond
     MOV [out_buff + di], "N"
     MOV [out_buff + di + 1], "o"
     MOV [out_buff + di + 2], "n"
@@ -246,40 +245,50 @@ skip1111:
     INC SI
     inc BX
     JMP print_line
-hb0000:
+;=== END OF FIRST BYTE HIGHER =================================================
 
+;=== START OF FIRST 0000xxxx =================================================
+fh0000:
     MOV [out_buff + di], "0"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb0001:
+;=== END OF FIRST 0000xxxx =================================================
 
+;=== START OF FIRST 0001xxxx =================================================
+fh0001:
     MOV [out_buff + di], "1"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb0010:
+;=== END OF FIRST 0001xxxx =================================================
 
+;=== START OF FIRST 0010xxxx =================================================
+fh0010:
     MOV [out_buff + di], "2"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb0011:
+;=== END OF FIRST 0010xxxx =================================================
 
+;=== START OF FIRST 0011xxxx =================================================
+fh0011:
     MOV [out_buff + di], "3"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb0100:
+;=== END OF FIRST 0011xxxx =================================================
 
+;=== START OF FIRST 0100xxxx =================================================
+fh0100:
     MOV ah, [in_buff + bx]
     AND ah, 00001000b
 
@@ -311,8 +320,10 @@ not_DEC2:
     INC SI
     inc BX
     JMP print_line
-hb0101:
+;=== END OF FIRST 0100xxxx =================================================
 
+;=== START OF FIRST 0101xxxx =================================================
+fh0101:
     MOV ah, [in_buff + bx]
     AND ah, 00001000b
 
@@ -345,16 +356,20 @@ not_POP2:
     INC SI
     inc BX
     JMP print_line
-hb0110:
+;=== END OF FIRST 0101xxxx =================================================
 
+;=== START OF FIRST 0110xxxx =================================================
+fh0110:
     MOV [out_buff + di], "6"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb0111:
+;=== END OF FIRST 0110xxxx =================================================
 
+;=== START OF FIRST 0111xxxx =================================================
+fh0111:
     MOV ah, [in_buff + bx]
     AND ah, 00001111b
 
@@ -488,71 +503,189 @@ not_JG:
     CALL get_displacement
 
     JMP print_line
-hb1000:
+;=== END OF FIRST 0111xxxx =================================================
 
+;=== START OF FIRST 1000xxxx =================================================
+fh1000:
     MOV [out_buff + di], "9"
     INC di
 
     INC SI
     INC BX
     JMP print_line
-hb1001:
+;=== END OF FIRST 1000xxxx =================================================
 
+;=== START OF FIRST 1001xxxx =================================================
+fh1001:
     MOV [out_buff + di], "A"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb1010:
+;=== END OF FIRST 1001xxxx =================================================
 
+;=== START OF FIRST 1010xxxx =================================================
+fh1010:
     MOV [out_buff + di], "B"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb1011:
+;=== END OF FIRST 1010xxxx =================================================
 
+;=== START OF FIRST 1011xxxx =================================================
+fh1011:
     MOV [out_buff + di], "C"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb1100:
+;=== END OF FIRST 1011xxxx =================================================
 
+;=== START OF FIRST 1100xxxx =================================================
+fh1100:
     MOV [out_buff + di], "D"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb1101:
+;=== END OF FIRST 1100xxxx =================================================
 
+;=== START OF FIRST 1101xxxx =================================================
+fh1101:
     MOV [out_buff + di], "E"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb1110:
+;=== END OF FIRST 1101xxxx =================================================
 
+;=== START OF FIRST 1110xxxx =================================================
+fh1110:
     MOV [out_buff + di], "F"
     INC di
 
     INC SI
     inc BX
     JMP print_line
-hb1111:
+;=== END OF FIRST 1110xxxx =================================================
 
-    MOV [out_buff + di], "G"
-    INC di
+;=== START OF FIRST 1111xxxx =================================================
+fh1111:
+    CMP ah, 00000000b
+    JNE not_LOCK
+    MOV [out_buff + di], "L"
+    MOV [out_buff + di + 1], "O"
+    MOV [out_buff + di + 2], "C"
+    MOV [out_buff + di + 3], "K"
+    ADD di, 4
+not_LOCK:
+
+    CMP ah, 00000010b
+    JNE not_REPNZ
+    MOV [out_buff + di], "R"
+    MOV [out_buff + di + 1], "E"
+    MOV [out_buff + di + 2], "P"
+    MOV [out_buff + di + 3], "N"
+    MOV [out_buff + di + 4], "Z"
+    ADD di, 5
+not_REPNZ:
+
+    CMP ah, 00000011b
+    JNE not_REP
+    MOV [out_buff + di], "R"
+    MOV [out_buff + di + 1], "E"
+    MOV [out_buff + di + 2], "P"
+    ADD di, 3
+not_REP:
+
+    CMP ah, 00000100b
+    JNE not_HLT
+    MOV [out_buff + di], "H"
+    MOV [out_buff + di + 1], "L"
+    MOV [out_buff + di + 2], "T"
+    ADD di, 3
+not_HLT:
+
+    CMP ah, 00000101b
+    JNE not_CMC
+    MOV [out_buff + di], "C"
+    MOV [out_buff + di + 1], "M"
+    MOV [out_buff + di + 2], "C"
+    ADD di, 3
+not_CMC:
+
+    CMP ah, 00001000b
+    JNE not_CLC
+    MOV [out_buff + di], "C"
+    MOV [out_buff + di + 1], "L"
+    MOV [out_buff + di + 2], "C"
+    ADD di, 3
+not_CLC:
+
+    CMP ah, 00001001b
+    JNE not_STC
+    MOV [out_buff + di], "S"
+    MOV [out_buff + di + 1], "T"
+    MOV [out_buff + di + 2], "C"
+    ADD di, 3
+not_STC:
+
+    CMP ah, 00001010b
+    JNE not_CLI
+    MOV [out_buff + di], "C"
+    MOV [out_buff + di + 1], "L"
+    MOV [out_buff + di + 2], "I"
+    ADD di, 3
+not_CLI:
+
+    CMP ah, 00001011b
+    JNE not_STI
+    MOV [out_buff + di], "S"
+    MOV [out_buff + di + 1], "T"
+    MOV [out_buff + di + 2], "I"
+    ADD di, 3
+not_STI:
+
+    CMP ah, 00001100b
+    JNE not_CLD
+    MOV [out_buff + di], "C"
+    MOV [out_buff + di + 1], "L"
+    MOV [out_buff + di + 2], "D"
+    ADD di, 3
+not_CLD:
+
+    CMP ah, 00001101b
+    JNE not_STD
+    MOV [out_buff + di], "S"
+    MOV [out_buff + di + 1], "T"
+    MOV [out_buff + di + 2], "D"
+    ADD di, 3
+not_STD:
+
+    CMP ah, 00001111b
+    JNE not_11111111
+    CALL b11111111
+not_11111111:
 
     INC SI
     inc BX
     JMP print_line
+;=== END OF FIRST 1111xxxx =================================================
 
+b11111111:
+    INC SI
+    inc BX
+
+    MOV ah, [in_buff + bx]
+    AND ah, 00111000b
+
+    RET
 
 get_register:
     PUSH bx
