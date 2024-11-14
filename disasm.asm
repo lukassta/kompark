@@ -144,7 +144,7 @@ new_byte:
 
 load_buff:
     CMP bx, load_size
-    JNE do_not_load
+    JB do_not_load
 
     CMP load_size, 200h
     JNE file_end
@@ -194,6 +194,11 @@ LOOP get_space
     JNE skip000sr11x
     JMP f000sr11x
 skip000sr11x:
+
+    CMP ah, 00100110b
+    JNE skip_data_segment_switch
+    JMP data_segment_switch
+skip_data_segment_switch:
 
     MOV ah, [in_buff + bx]
     AND ah, 11110000b
@@ -263,6 +268,11 @@ skip1100:
     JMP fh1101
 skip1101:
 
+    CMP ah, 11100000b
+    JNE skip1110
+    JMP fh1110
+skip1110:
+
     CMP ah, 11110000b
     JNE skip1111
     JMP fh1111
@@ -278,9 +288,21 @@ unknown_instruction:
     JMP write_line
 ;=== END OF FIRST BYTE HIGHER =================================================
 
+data_segment_switch:
+    MOV al, [in_buff + bx]
+    AND al, 00011000b
+    SHR al, 3
+
+    CALL get_sreg
+
+    JMP write_line
+
 ;=== START OF FIRST 000sr11x =================================================
 f000sr11x:
-    CMP ah, 00000000b
+    MOV al, [in_buff + bx]
+    AND al, 00000001b
+
+    CMP al, 00000000b
     JNE not_PUSH3
     MOV [out_buff + di], "P"
     MOV [out_buff + di + 1], "U"
@@ -291,7 +313,7 @@ f000sr11x:
     JMP known_f000sr11x
 not_PUSH3:
 
-    CMP ah, 00000000b
+    CMP al, 00000001b
     JNE not_POP3
     MOV [out_buff + di], "P"
     MOV [out_buff + di + 1], "O"
@@ -310,8 +332,6 @@ known_f000sr11x:
 
     CALL get_sreg
 
-    INC di
-
     JMP write_line
 ;=== END OF FIRST 000sr11x =================================================
 
@@ -328,9 +348,9 @@ fh0000:
     MOV [out_buff + di + 3], " "
     ADD di, 4
 
-    MOV ah, [in_buff + bx]
-    AND ah, 00000011b
-    MOV flags, ah
+    MOV al, [in_buff + bx]
+    AND al, 00000011b
+    MOV flags, al
 
     JMP get_rm
 not_ADD1:
@@ -345,7 +365,7 @@ not_ADD1:
 
     MOV al, [in_buff + bx]
     AND al, 00000001b
-    MOV flags, ah
+    MOV flags, al
 
     CALL get_imed_op
 
@@ -482,9 +502,9 @@ fh0010:
     MOV [out_buff + di + 3], " "
     ADD di, 4
 
-    MOV ah, [in_buff + bx]
-    AND ah, 00000011b
-    MOV flags, ah
+    MOV al, [in_buff + bx]
+    AND al, 00000011b
+    MOV flags, al
 
     JMP get_rm
 not_AND1:
@@ -590,9 +610,9 @@ fh0011:
     MOV [out_buff + di + 3], " "
     ADD di, 4
 
-    MOV ah, [in_buff + bx]
-    AND ah, 00000011b
-    MOV flags, ah
+    MOV al, [in_buff + bx]
+    AND al, 00000011b
+    MOV flags, al
 
     JMP get_rm
 not_XOR1:
@@ -605,9 +625,9 @@ not_XOR1:
     MOV [out_buff + di + 3], " "
     ADD di, 4
 
-    MOV ah, [in_buff + bx]
-    AND ah, 00000011b
-    MOV flags, ah
+    MOV al, [in_buff + bx]
+    AND al, 00000011b
+    MOV flags, al
 
     JMP get_rm
 not_CMP1:
@@ -662,9 +682,8 @@ not_AAA:
 
     CALL get_acum
 
-    MOV [out_buff + di + 2], ","
-    MOV [out_buff + di + 3], " "
-    ADD di, 2
+    MOV [out_buff + di], ","
+    INC di
 
     CALL get_imed_op
 
@@ -715,10 +734,10 @@ known_fh0100:
     MOV [out_buff + di], " "
     INC di
 
-    MOV al, [in_buff + bx]
-    AND al, 00000111b
     MOV flags, 00000001b
 
+    MOV al, [in_buff + bx]
+    AND al, 00000111b
     CALL get_reg
 
     JMP write_line
@@ -755,10 +774,10 @@ known_fh0101:
     MOV [out_buff + di], " "
     INC di
 
-    MOV al, [in_buff + bx]
-    AND al, 00000111b
     MOV flags, 00000001b
 
+    MOV al, [in_buff + bx]
+    AND al, 00000111b
     CALL get_reg
 
     JMP write_line
@@ -1003,7 +1022,12 @@ not_XCHG1:
     MOV [out_buff + di + 3], " "
     ADD di, 4
 
-    JMP write_line
+    MOV al, [in_buff + bx]
+    AND al, 00000010b
+    OR al, 10000001b
+    MOV flags, al
+
+    JMP get_rm
 not_MOV6:
 
     MOV al, [in_buff + bx]
@@ -1172,7 +1196,9 @@ fh1001:
     MOV al, [in_buff + bx]
     AND al, 00000111b
 
-    JMP get_reg
+    CALL get_reg
+
+    JMP write_line
 not_XCHG2:
 
     MOV al, [in_buff + bx]
@@ -1184,6 +1210,8 @@ not_XCHG2:
     MOV [out_buff + di + 1], "B"
     MOV [out_buff + di + 2], "W"
     ADD di, 3
+
+    JMP write_line
 not_CBW:
 
     CMP al, 00001001b
@@ -1192,6 +1220,8 @@ not_CBW:
     MOV [out_buff + di + 1], "W"
     MOV [out_buff + di + 2], "D"
     ADD di, 3
+
+    JMP write_line
 not_CWD:
 
     CMP al, 00001010b
@@ -1216,6 +1246,8 @@ not_CALL3:
     MOV [out_buff + di + 2], "I"
     MOV [out_buff + di + 3], "T"
     ADD di, 4
+
+    JMP write_line
 not_WAIT:
 
     CMP al, 00001100b
@@ -1226,6 +1258,8 @@ not_WAIT:
     MOV [out_buff + di + 3], "H"
     MOV [out_buff + di + 3], "F"
     ADD di, 5
+
+    JMP write_line
 not_PUSHF:
 
     CMP al, 00001101b
@@ -1235,6 +1269,8 @@ not_PUSHF:
     MOV [out_buff + di + 2], "P"
     MOV [out_buff + di + 3], "F"
     ADD di, 4
+
+    JMP write_line
 not_POPF:
 
     CMP al, 00001110b
@@ -1244,6 +1280,8 @@ not_POPF:
     MOV [out_buff + di + 2], "H"
     MOV [out_buff + di + 3], "F"
     ADD di, 4
+
+    JMP write_line
 not_SAHF:
 
     CMP al, 00001111b
@@ -1253,9 +1291,11 @@ not_SAHF:
     MOV [out_buff + di + 2], "H"
     MOV [out_buff + di + 3], "F"
     ADD di, 4
-not_LAHF:
 
     JMP write_line
+not_LAHF:
+
+    JMP unknown_instruction
 ;=== END OF FIRST 1001xxxx =================================================
 
 ;=== START OF FIRST 1010xxxx =================================================
@@ -1282,10 +1322,11 @@ fh1010:
     MOV [out_buff + di + 2], "["
     ADD di, 3
 
-    CALL get_imed_op
+    CALL get_word
 
-    MOV [out_buff + di], "]"
-    INC di
+    MOV [out_buff + di], "h"
+    MOV [out_buff + di + 1], "]"
+    ADD di, 2
 
     JMP write_line
 not_MOV4:
@@ -1305,12 +1346,13 @@ not_MOV4:
     MOV [out_buff + di], "["
     INC di
 
-    CALL get_imed_op
+    CALL get_word
 
-    MOV [out_buff + di], "]"
-    MOV [out_buff + di + 1], ","
-    MOV [out_buff + di + 2], " "
-    ADD di, 3
+    MOV [out_buff + di], "h"
+    MOV [out_buff + di + 1], "]"
+    MOV [out_buff + di + 2], ","
+    MOV [out_buff + di + 3], " "
+    ADD di, 4
 
     CALL get_acum
 
@@ -1324,6 +1366,8 @@ not_MOV5:
     MOV [out_buff + di + 2], "V"
     MOV [out_buff + di + 3], "S"
     ADD di, 4
+
+    JMP write_line
 not_MOVS:
 
     CMP al, 00000110b
@@ -1333,6 +1377,8 @@ not_MOVS:
     MOV [out_buff + di + 2], "P"
     MOV [out_buff + di + 3], "S"
     ADD di, 4
+
+    JMP write_line
 not_CMPS:
 
     CMP al, 00001000b
@@ -1366,6 +1412,8 @@ not_TEST3:
     MOV [out_buff + di + 2], "O"
     MOV [out_buff + di + 3], "S"
     ADD di, 4
+
+    JMP write_line
 not_STOS:
 
     CMP al, 00001100b
@@ -1375,6 +1423,8 @@ not_STOS:
     MOV [out_buff + di + 2], "D"
     MOV [out_buff + di + 3], "S"
     ADD di, 4
+
+    JMP write_line
 not_LODS:
 
     CMP al, 00001110b
@@ -1384,9 +1434,11 @@ not_LODS:
     MOV [out_buff + di + 2], "A"
     MOV [out_buff + di + 3], "S"
     ADD di, 4
-not_SCAS:
 
     JMP write_line
+not_SCAS:
+
+    JMP unknown_instruction
 ;=== END OF FIRST 1010xxxx =================================================
 
 ;=== START OF FIRST 1011xxxx =================================================
@@ -1400,7 +1452,7 @@ fh1011:
 
     MOV al, [in_buff + bx]
     AND al, 00001000b
-    SHR ah, 3
+    SHR al, 3
     MOV flags, al
 
     MOV al, [in_buff + bx]
@@ -1408,8 +1460,7 @@ fh1011:
     CALL get_reg
 
     MOV [out_buff + di], ","
-    MOV [out_buff + di + 1], " "
-    ADD di, 2
+    INC di
 
     CALL get_imed_op
 
@@ -1429,13 +1480,18 @@ fh1100:
     MOV [out_buff + di + 3], " "
     ADD di, 4
 
+    MOV al, [in_buff + bx]
+    AND al, 00000001b
+    MOV flags, al
+
+    CALL new_byte
     CALL get_single_rm
 
     MOV [out_buff + di], ","
-    MOV [out_buff + di + 1], " "
-    ADD di, 2
+    INC di
 
     CALL get_imed_op
+
     JMP write_line
 not_MOV2:
 
@@ -1464,8 +1520,8 @@ not_RET2:
     MOV [out_buff + di], "R"
     MOV [out_buff + di + 1], "E"
     MOV [out_buff + di + 2], "T"
-    MOV [out_buff + di + 3], " "
-    ADD di, 4
+    ADD di, 3
+
     JMP write_line
 not_RET1:
 
@@ -1575,15 +1631,21 @@ fh1101:
 
     CALL get_displacement_byte
 
-    MOV [out_buff + di], "h"
     MOV [out_buff + di + 1], ","
-    MOV [out_buff + di + 2], " "
-    ADD di, 3
+    INC di
 
     CALL get_single_rm
 
     JMP write_line
 not_ESC:
+
+    MOV al, [in_buff + bx]
+    AND al, 00001100b
+
+    CMP al, 00000000b
+    JNE not_110100vw
+    JMP b110100vw
+not_110100vw:
 
     MOV al, [in_buff + bx]
     AND al, 00001111b
@@ -1624,6 +1686,118 @@ not_AAD:
 not_XLAT:
 
     JMP unknown_instruction
+
+b110100vw:
+    MOV al, [in_buff + bx]
+    AND al, 00000011b
+    MOV flags, al
+
+    CALL new_byte
+
+    MOV al, [in_buff + bx]
+    AND al, 00111000b
+
+    CMP al, 00000000b
+    JNE not_ROL
+    MOV [out_buff + di], "R"
+    MOV [out_buff + di + 1], "O"
+    MOV [out_buff + di + 2], "L"
+    ADD di, 3
+
+    JMP known_b110100vw
+not_ROL:
+
+    CMP al, 00001000b
+    JNE not_ROR
+    MOV [out_buff + di], "R"
+    MOV [out_buff + di + 1], "O"
+    MOV [out_buff + di + 2], "R"
+    ADD di, 3
+
+    JMP known_b110100vw
+not_ROR:
+
+    CMP al, 00010000b
+    JNE not_RCL
+    MOV [out_buff + di], "R"
+    MOV [out_buff + di + 1], "C"
+    MOV [out_buff + di + 2], "L"
+    ADD di, 3
+
+    JMP known_b110100vw
+not_RCL:
+
+    CMP al, 00011000b
+    JNE not_RCR
+    MOV [out_buff + di], "R"
+    MOV [out_buff + di + 1], "C"
+    MOV [out_buff + di + 2], "R"
+    ADD di, 3
+
+    JMP known_b110100vw
+not_RCR:
+
+    CMP al, 00100000b
+    JNE not_SHL
+    MOV [out_buff + di], "S"
+    MOV [out_buff + di + 1], "H"
+    MOV [out_buff + di + 2], "L"
+    ADD di, 3
+
+    JMP known_b110100vw
+not_SHL:
+
+    CMP al, 00101000b
+    JNE not_SHR
+    MOV [out_buff + di], "S"
+    MOV [out_buff + di + 1], "H"
+    MOV [out_buff + di + 2], "R"
+    ADD di, 3
+
+    JMP known_b110100vw
+not_SHR:
+
+    CMP al, 00111000b
+    JNE not_SAR
+    MOV [out_buff + di], "S"
+    MOV [out_buff + di + 1], "A"
+    MOV [out_buff + di + 2], "R"
+    ADD di, 3
+
+    JMP known_b110100vw
+not_SAR:
+
+    JMP unknown_instruction
+
+known_b110100vw:
+
+    MOV [out_buff + di], " "
+    INC di
+
+    CALL get_single_rm
+
+    MOV [out_buff + di], ","
+    INC di
+
+    MOV al, flags
+    AND al, 00000010b
+
+    CMP al, 00000000b
+    JNE not_shift_1
+
+    MOV [out_buff + di], "1"
+    INC di
+not_shift_1:
+
+    CMP al, 00000010b
+    JNE not_shift_cl
+
+    MOV [out_buff + di], "c"
+    MOV [out_buff + di + 1], "l"
+    ADD di, 2
+not_shift_cl:
+
+    JMP write_line
 ;=== END OF FIRST 1101xxxx =================================================
 
 ;=== START OF FIRST 1110xxxx =================================================
@@ -1709,18 +1883,20 @@ not_OUT2:
     AND al, 00001111b
 
     CMP al, 00000000b
-    JNE not_LOOP
+    JNE not_LOOPNE
     MOV [out_buff + di], "L"
     MOV [out_buff + di + 1], "O"
     MOV [out_buff + di + 2], "O"
     MOV [out_buff + di + 3], "P"
-    MOV [out_buff + di + 4], " "
-    ADD di, 5
+    MOV [out_buff + di + 4], "E"
+    MOV [out_buff + di + 5], "N"
+    MOV [out_buff + di + 6], " "
+    ADD di, 7
 
     CALL get_jump_displacement
 
     JMP write_line
-not_LOOP:
+not_LOOPNE:
 
     CMP al, 00000001b
     JNE not_LOOPE
@@ -1738,20 +1914,18 @@ not_LOOP:
 not_LOOPE:
 
     CMP al, 00000010b
-    JNE not_LOOPNE
+    JNE not_LOOP
     MOV [out_buff + di], "L"
     MOV [out_buff + di + 1], "O"
     MOV [out_buff + di + 2], "O"
     MOV [out_buff + di + 3], "P"
-    MOV [out_buff + di + 4], "N"
-    MOV [out_buff + di + 5], "E"
-    MOV [out_buff + di + 6], " "
-    ADD di, 7
+    MOV [out_buff + di + 4], " "
+    ADD di, 5
 
     CALL get_jump_displacement
 
     JMP write_line
-not_LOOPNE:
+not_LOOP:
 
     CMP al, 00000011b
     JNE not_JCXZ
@@ -1774,13 +1948,14 @@ not_JCXZ:
     MOV [out_buff + di + 2], "L"
     MOV [out_buff + di + 3], "L"
     MOV [out_buff + di + 4], " "
-    ADD di, 5
+    MOV [out_buff + di + 5], "["
+    ADD di, 6
 
-    MOV al, [in_buff + bx]
-    CALL new_byte
-    MOV ah, [in_buff + bx]
+    CALL get_word
 
-    CALL get_ax
+    MOV [out_buff + di], "h"
+    MOV [out_buff + di + 1], "]"
+    ADD di, 2
 
     JMP write_line
 not_CALL1:
@@ -1793,7 +1968,7 @@ not_CALL1:
     MOV [out_buff + di + 3], " "
     ADD di, 4
 
-    CALL get_jump_displacement
+    CALL get_jump_displacement_word
 
     JMP write_line
 not_JMP2:
@@ -1808,6 +1983,10 @@ not_JMP2:
 
     CALL get_word
     CALL get_word
+
+    MOV [out_buff + di], "h"
+    MOV [out_buff + di + 1], "]"
+    ADD di, 2
 
     JMP write_line
 not_JMP4:
@@ -1946,6 +2125,8 @@ not_CLC:
     MOV [out_buff + di + 1], "T"
     MOV [out_buff + di + 2], "C"
     ADD di, 3
+
+    JMP write_line
 not_STC:
 
     CMP al, 00001010b
@@ -1954,6 +2135,8 @@ not_STC:
     MOV [out_buff + di + 1], "L"
     MOV [out_buff + di + 2], "I"
     ADD di, 3
+
+    JMP write_line
 not_CLI:
 
     CMP al, 00001011b
@@ -1962,6 +2145,8 @@ not_CLI:
     MOV [out_buff + di + 1], "T"
     MOV [out_buff + di + 2], "I"
     ADD di, 3
+
+    JMP write_line
 not_STI:
 
     CMP al, 00001100b
@@ -1970,6 +2155,8 @@ not_STI:
     MOV [out_buff + di + 1], "L"
     MOV [out_buff + di + 2], "D"
     ADD di, 3
+
+    JMP write_line
 not_CLD:
 
     CMP al, 00001101b
@@ -1978,26 +2165,210 @@ not_CLD:
     MOV [out_buff + di + 1], "T"
     MOV [out_buff + di + 2], "D"
     ADD di, 3
+
+    JMP write_line
 not_STD:
 
     CMP al, 00001111b
     JNE not_11111111
-    CALL b11111111
+    JMP b11111111
 not_11111111:
 
-    JMP write_line
+    JMP unknown_instruction
 
 f1111011w:
+    MOV al, [in_buff + bx]
+    AND al, 00000001b
+    MOV flags, al
+
+    CALL new_byte
+
+    MOV al, [in_buff + bx]
+    AND al, 00111000b
+
+    CMP al, 00000000b
+    JNE not_TEST2
+    MOV [out_buff + di], "T"
+    MOV [out_buff + di + 1], "E"
+    MOV [out_buff + di + 2], "S"
+    MOV [out_buff + di + 3], "T"
+    MOV [out_buff + di + 4], " "
+    ADD di, 5
+
+    CALL get_single_rm
+
+    MOV [out_buff + di], ","
+    INC di
+
+    CALL get_imed_op
+not_TEST2:
+
+    CMP al, 00010000b
+    JNE not_NOT
+    MOV [out_buff + di], "N"
+    MOV [out_buff + di + 1], "O"
+    MOV [out_buff + di + 2], "T"
+    MOV [out_buff + di + 3], " "
+    ADD di, 4
+
+    CALL get_single_rm
+
     JMP write_line
+not_NOT:
+
+    CMP al, 00011000b
+    JNE not_NEG
+    MOV [out_buff + di], "N"
+    MOV [out_buff + di + 1], "E"
+    MOV [out_buff + di + 2], "G"
+    MOV [out_buff + di + 3], " "
+    ADD di, 4
+
+    CALL get_single_rm
+
+    JMP write_line
+not_NEG:
+
+    CMP al, 00100000b
+    JNE not_MUL
+    MOV [out_buff + di], "M"
+    MOV [out_buff + di + 1], "U"
+    MOV [out_buff + di + 2], "L"
+    MOV [out_buff + di + 3], " "
+    ADD di, 4
+
+    CALL get_single_rm
+
+    JMP write_line
+not_MUL:
+
+    CMP al, 00101000b
+    JNE not_IMUL
+    MOV [out_buff + di], "I"
+    MOV [out_buff + di + 1], "M"
+    MOV [out_buff + di + 2], "U"
+    MOV [out_buff + di + 3], "L"
+    MOV [out_buff + di + 4], " "
+    ADD di, 5
+
+    CALL get_single_rm
+
+    JMP write_line
+not_IMUL:
+
+    CMP al, 00110000b
+    JNE not_DIV
+    MOV [out_buff + di], "D"
+    MOV [out_buff + di + 1], "I"
+    MOV [out_buff + di + 2], "V"
+    MOV [out_buff + di + 3], " "
+    ADD di, 4
+
+    CALL get_single_rm
+
+    JMP write_line
+not_DIV:
+
+    CMP al, 00111000b
+    JNE not_IDIV
+    MOV [out_buff + di], "I"
+    MOV [out_buff + di + 1], "D"
+    MOV [out_buff + di + 2], "I"
+    MOV [out_buff + di + 3], "V"
+    MOV [out_buff + di + 4], " "
+    ADD di, 4
+
+    CALL get_single_rm
+
+    JMP write_line
+not_IDIV:
+
+    JMP unknown_instruction
 ;=== END OF FIRST 1111xxxx =================================================
 
 b11111111:
+    MOV flags, 00000001b
+
     CALL new_byte
 
-    MOV ah, [in_buff + bx]
-    AND ah, 00111000b
+    MOV al, [in_buff + bx]
+    AND al, 00111000b
 
-    RET
+
+    CMP ah, 00010000b
+    JNE not_CALL2
+
+    MOV [out_buff + di], "C"
+    MOV [out_buff + di + 1], "A"
+    MOV [out_buff + di + 2], "L"
+    MOV [out_buff + di + 3], "L"
+    MOV [out_buff + di + 4], " "
+    ADD di, 5
+
+    CALL get_single_rm
+
+    JMP write_line
+not_CALL2:
+
+    CMP ah, 00011000b
+    JNE not_CALL4
+
+    MOV [out_buff + di], "C"
+    MOV [out_buff + di + 1], "A"
+    MOV [out_buff + di + 2], "L"
+    MOV [out_buff + di + 3], "L"
+    MOV [out_buff + di + 4], " "
+    ADD di, 5
+
+    CALL get_single_rm
+
+    JMP write_line
+not_CALL4:
+
+    CMP ah, 00100000b
+    JNE not_JMP3
+
+    MOV [out_buff + di], "J"
+    MOV [out_buff + di + 1], "M"
+    MOV [out_buff + di + 2], "P"
+    MOV [out_buff + di + 3], " "
+    ADD di, 4
+
+    CALL get_single_rm
+
+    JMP write_line
+not_JMP3:
+
+    CMP ah, 00101000b
+    JNE not_JMP5
+
+    MOV [out_buff + di], "J"
+    MOV [out_buff + di + 1], "M"
+    MOV [out_buff + di + 2], "P"
+    MOV [out_buff + di + 3], " "
+    ADD di, 4
+
+    CALL get_single_rm
+
+    JMP write_line
+not_JMP5:
+
+    CMP ah, 00110000b
+    JNE not_PUSH1
+
+    MOV [out_buff + di], "P"
+    MOV [out_buff + di + 1], "U"
+    MOV [out_buff + di + 2], "S"
+    MOV [out_buff + di + 3], "H"
+    MOV [out_buff + di + 4], " "
+    ADD di, 5
+
+    CALL get_single_rm
+
+    JMP write_line
+not_PUSH1:
+
+    JMP unknown_instruction
 
 get_sreg:
     PUSH bx
@@ -2023,6 +2394,7 @@ get_sreg:
     RET
 
 get_reg:
+    PUSH ax
     PUSH bx
     PUSH si
 
@@ -2036,9 +2408,9 @@ get_reg:
 
     XOR ah, ah
 
-    SHL al, 1
+    SHL ax, 1
     MOV si, ax
-    MOV bx, offset registers
+    LEA bx, registers
     MOV al, [bx + si]
     MOV [out_buff + di], al
     MOV al, [bx + si + 1]
@@ -2047,6 +2419,7 @@ get_reg:
 
     POP si
     POP bx
+    POP ax
 
     RET
 
@@ -2058,38 +2431,67 @@ get_single_rm:
 get_rm:
     CALL new_byte
 
+    MOV al, [in_buff + bx]
+    PUSH ax
+
     MOV ah, flags
     AND ah, 00000010b; d flag
-    MOV al, [in_buff + bx]
-
-    PUSH ax
     CMP ah, 00000010b
     JNE not_rm_d1
 
+    MOV ah, flags
+    AND ah, 10000000b
+
+    CMP ah, 00000000b
+    JNE not_reg_d1
+
+    AND al, 00111000b
     SHR al, 3
-    AND al, 00000111b
     CALL get_reg
+not_reg_d1:
+
+    CMP ah, 10000000b
+    JNE not_sreg_d1
+
+    AND al, 00011000b
+    SHR al, 3
+    CALL get_sreg
+not_sreg_d1:
 
     MOV [out_buff + di], ","
-    MOV [out_buff + di + 1], " "
-    ADD di, 2
+    INC di
 not_rm_d1:
 
     CALL get_rm_middle
 
     POP ax
 
+    MOV ah, flags
+    AND ah, 00000010b; d flag
     CMP ah, 00000000b
     JNE not_rm_d0
 
     MOV [out_buff + di], ","
-    MOV [out_buff + di + 1], " "
-    ADD di, 2
+    INC di
 
+    MOV ah, flags
+    AND ah, 10000000b
+
+    CMP ah, 00000000b
+    JNE not_reg_d0
+
+    AND al, 00111000b
     SHR al, 3
-    AND al, 00000111b
     CALL get_reg
+not_reg_d0:
 
+    CMP ah, 10000000b
+    JNE not_sreg_d0
+
+    AND al, 00011000b
+    SHR al, 3
+    CALL get_sreg
+not_sreg_d0:
 not_rm_d0:
 
     JMP write_line
@@ -2103,6 +2505,7 @@ get_rm_middle:
 
     CMP ah, 11000000b
     JNE not_mod11
+
     CALL get_reg
 
     RET
@@ -2115,87 +2518,88 @@ not_mod11:
     JNE not_address
     CMP al, 00000110b
     JNE not_address
+
     CALL get_word
 
-    MOV [out_buff + di], "]"
-    INC di
+    MOV [out_buff + di], "h"
+    MOV [out_buff + di + 1], "]"
+    ADD di, 2
     RET
 not_address:
 
     CMP al, 00000000b
     JNE not_rm000
-    MOV [out_buff + di], "B"
-    MOV [out_buff + di + 1], "X"
+    MOV [out_buff + di], "b"
+    MOV [out_buff + di + 1], "x"
     MOV [out_buff + di + 2], "+"
-    MOV [out_buff + di + 3], "S"
-    MOV [out_buff + di + 4], "I"
+    MOV [out_buff + di + 3], "s"
+    MOV [out_buff + di + 4], "i"
     ADD di, 5
 not_rm000:
 
     CMP al, 00000001b
     JNE not_rm001
-    MOV [out_buff + di], "B"
-    MOV [out_buff + di + 1], "X"
+    MOV [out_buff + di], "b"
+    MOV [out_buff + di + 1], "x"
     MOV [out_buff + di + 2], "+"
-    MOV [out_buff + di + 3], "D"
-    MOV [out_buff + di + 4], "I"
+    MOV [out_buff + di + 3], "d"
+    MOV [out_buff + di + 4], "i"
     ADD di, 5
 not_rm001:
 
     CMP al, 00000010b
     JNE not_rm010
-    MOV [out_buff + di], "B"
-    MOV [out_buff + di + 1], "P"
+    MOV [out_buff + di], "b"
+    MOV [out_buff + di + 1], "p"
     MOV [out_buff + di + 2], "+"
-    MOV [out_buff + di + 3], "S"
-    MOV [out_buff + di + 4], "I"
+    MOV [out_buff + di + 3], "s"
+    MOV [out_buff + di + 4], "i"
     ADD di, 5
 not_rm010:
 
     CMP al, 00000011b
     JNE not_rm011
-    MOV [out_buff + di], "B"
-    MOV [out_buff + di + 1], "P"
+    MOV [out_buff + di], "b"
+    MOV [out_buff + di + 1], "p"
     MOV [out_buff + di + 2], "+"
-    MOV [out_buff + di + 3], "D"
-    MOV [out_buff + di + 4], "I"
+    MOV [out_buff + di + 3], "d"
+    MOV [out_buff + di + 4], "i"
     ADD di, 5
 not_rm011:
 
 
     CMP al, 00000100b
     JNE not_rm100
-    MOV [out_buff + di], "S"
-    MOV [out_buff + di + 1], "I"
+    MOV [out_buff + di], "s"
+    MOV [out_buff + di + 1], "i"
     ADD di, 2
 not_rm100:
 
     CMP al, 00000101b
     JNE not_rm101
-    MOV [out_buff + di], "D"
-    MOV [out_buff + di + 1], "I"
+    MOV [out_buff + di], "d"
+    MOV [out_buff + di + 1], "i"
     ADD di, 2
 not_rm101:
 
     CMP al, 00000110b
     JNE not_rm110
-    MOV [out_buff + di], "B"
-    MOV [out_buff + di + 1], "P"
+    MOV [out_buff + di], "b"
+    MOV [out_buff + di + 1], "p"
     ADD di, 2
 not_rm110:
 
     CMP al, 00000111b
     JNE not_rm111
-    MOV [out_buff + di], "B"
-    MOV [out_buff + di + 1], "X"
+    MOV [out_buff + di], "b"
+    MOV [out_buff + di + 1], "x"
     ADD di, 2
 not_rm111:
 
     CMP ah, 01000000b
     JNE not_mod01
     MOV al, [in_buff + bx]
-    ;AND al, 00000111b
-    ;CALL get_reg
+    ;hmm
 
     MOV [out_buff + di], "+"
     INC di
@@ -2282,16 +2686,17 @@ get_imed_op:
     MOV ah, [in_buff + bx]
 
     CALL get_ax
+
+    MOV [out_buff + di], "h"
+    INC di
+
+    RET
 not_imed_op_word:
 
-    CMP ah, 00000000b
-    JNE not_imed_op_byte
 imed_op_is_byte:
     MOV al, [in_buff + bx]
 
     CALL get_al
-not_imed_op_byte:
-
 
     MOV [out_buff + di], "h"
     INC di
@@ -2317,6 +2722,9 @@ get_displacement_byte:
 
     CALL get_al
 
+    MOV [out_buff + di], "h"
+    INC di
+
     RET
 
 get_displacement_word:
@@ -2329,6 +2737,9 @@ get_displacement_word:
     MOV ah, [in_buff + bx]
 
     CALL get_ax
+
+    MOV [out_buff + di], "h"
+    INC di
 
     RET
 
@@ -2347,6 +2758,9 @@ get_jump_displacement:
     POP cx
 
     CALL get_ax
+
+    MOV [out_buff + di], "h"
+    INC di
 
     RET
 
@@ -2369,6 +2783,9 @@ get_jump_displacement_word:
     POP cx
 
     CALL get_ax
+
+    MOV [out_buff + di], "h"
+    INC di
 
     RET
 
